@@ -19,3 +19,8 @@
 
 # Go workspace file
 go.work
+go.sum
+
+cmd/relay-center/relay-center
+cmd/relay-shell/relay-shell
+cmd/relay-shell-svr/relay-shell-svr
