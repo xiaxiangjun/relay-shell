@@ -23,7 +23,7 @@ func (self *sessionRegister) AddSession(id string, session common.Session) {
 	// 删除旧的会话
 	oldSession, ok := self.sessions[id]
 	if ok || oldSession != session {
-		sessionMgr.RemoveSession(oldSession)
+		session.Close()
 	}
 
 	// 保存新会话
@@ -42,7 +42,7 @@ func (self *sessionRegister) RemoveSession(id string, session common.Session) {
 
 	delete(self.sessions, id)
 	// 执行关闭动作
-	sessionMgr.RemoveSession(oldSession)
+	session.Close()
 }
 
 func (self *sessionRegister) FindSession(id string) common.Session {

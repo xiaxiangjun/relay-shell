@@ -17,7 +17,7 @@ func ErrInternalServerError(msg string) *Error {
 	return &Error{code: 500, msg: msg}
 }
 
-// 定义错误码
+// 定义错误码, 采用http标准错误码
 var ErrOK = &Error{code: 200, msg: "OK"}
 var ErrForbidden = &Error{code: 403, msg: "Forbidden"}
 var ErrNotFound = &Error{code: 404, msg: "Not Found"}

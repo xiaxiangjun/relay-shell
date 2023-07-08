@@ -1,6 +1,7 @@
 package relay_center
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/xiaxiangjun/relay-shell/pkg/common"
@@ -22,27 +23,27 @@ func (self *sessionServe) SetApp(app *config.CenterApp) {
 
 // 处理会话
 func (self *sessionServe) Serve(session common.Session) {
-	// 保存session会话
-	SessionManager().AddSession(session)
-	defer SessionManager().RemoveSession(session)
-
 	// 记录日志
 	log.Println("new session:", session.RemoteAddr().String())
 	defer log.Println("session close:", session.RemoteAddr().String())
 
+	// 构建一个新context
+	ctx, cancel := context.WithCancel(self.app.Context)
+	defer cancel()
+
 	for {
 		// 获取一个stream
-		stream, err := session.AcceptStream(self.app.Context)
+		stream, err := session.AcceptStream(ctx)
 		if nil != err {
 			break
 		}
 
-		go self.sessionStreamServe(session, common.NewStreamReader(stream))
+		go self.sessionStreamServe(ctx, session, common.NewStreamReader(stream))
 	}
 }
 
 // 处理一个stream请求
-func (self *sessionServe) sessionStreamServe(session common.Session, stream *common.StreamReader) {
+func (self *sessionServe) sessionStreamServe(ctx context.Context, session common.Session, stream *common.StreamReader) {
 	defer stream.Close()
 
 	// step 1: 读取一行请求
@@ -58,7 +59,7 @@ func (self *sessionServe) sessionStreamServe(session common.Session, stream *com
 		return
 	}
 
-	self.sessionDispatch(session, stream.MoveToOwner(), msg)
+	self.sessionDispatch(ctx, session, stream.MoveToOwner(), msg)
 }
 
 // 验证用户授权
@@ -95,14 +96,14 @@ func (self *sessionServe) checkUserAuth(msg *common.Message) bool {
 }
 
 // 分发处理消息
-func (self *sessionServe) sessionDispatch(session common.Session, stream *common.StreamReader, msg *common.Message) {
+func (self *sessionServe) sessionDispatch(ctx context.Context, session common.Session, stream *common.StreamReader, msg *common.Message) {
 	defer stream.Close()
 
 	switch msg.Type {
 	case common.MsgConnect:
-		self.onRequestConnect(session, stream.MoveToOwner(), msg)
+		self.onRequestConnect(ctx, session, stream.MoveToOwner(), msg)
 	case common.MsgRegister:
-		self.onRequestRegister(session, stream.MoveToOwner(), msg)
+		self.onRequestRegister(ctx, session, stream.MoveToOwner(), msg)
 	default:
 		// 写入失败
 		stream.WriteError(common.ErrMethodNotAlowed)
@@ -110,7 +111,7 @@ func (self *sessionServe) sessionDispatch(session common.Session, stream *common
 }
 
 // 注册请求
-func (self *sessionServe) onRequestRegister(session common.Session, stream *common.StreamReader, msg *common.Message) {
+func (self *sessionServe) onRequestRegister(ctx context.Context, session common.Session, stream *common.StreamReader, msg *common.Message) {
 	defer stream.Close()
 
 	// 读取设备id
@@ -134,7 +135,7 @@ func (self *sessionServe) onRequestRegister(session common.Session, stream *comm
 }
 
 // 连接请求
-func (self *sessionServe) onRequestConnect(session common.Session, stream *common.StreamReader, msg *common.Message) {
+func (self *sessionServe) onRequestConnect(ctx context.Context, session common.Session, stream *common.StreamReader, msg *common.Message) {
 	defer stream.Close()
 
 	// 读取设备id
@@ -162,6 +163,13 @@ func (self *sessionServe) onRequestConnect(session common.Session, stream *commo
 
 	// 回应客户端
 	utils.WriteAll(stream, buf)
+
+	// context关闭关闭stream
+	go func() {
+		<-ctx.Done()
+		stream.Close()
+	}()
+
 	// 交换数据
 	utils.IoSwap(stream, peer)
 }
