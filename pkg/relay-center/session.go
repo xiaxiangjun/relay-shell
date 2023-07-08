@@ -26,6 +26,10 @@ func (self *sessionServe) Serve(session common.Session) {
 	SessionManager().AddSession(session)
 	defer SessionManager().RemoveSession(session)
 
+	// 记录日志
+	log.Println("new session:", session.RemoteAddr().String())
+	defer log.Println("session close:", session.RemoteAddr().String())
+
 	for {
 		// 获取一个stream
 		stream, err := session.AcceptStream(self.app.Context)

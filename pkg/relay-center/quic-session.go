@@ -5,10 +5,12 @@ import (
 	"github.com/quic-go/quic-go"
 	"github.com/xiaxiangjun/relay-shell/pkg/common"
 	"net"
+	"sync/atomic"
 )
 
 type quicSession struct {
-	session quic.Connection
+	session        quic.Connection
+	lastActiveTime *int64
 }
 
 func (self *quicSession) Close() error {
@@ -16,7 +18,7 @@ func (self *quicSession) Close() error {
 }
 
 func (self *quicSession) LastActiveTime() int64 {
-	return 0
+	return atomic.LoadInt64(self.lastActiveTime)
 }
 
 func (self *quicSession) RemoteAddr() net.Addr {
